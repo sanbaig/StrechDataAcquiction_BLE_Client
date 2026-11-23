@@ -1,0 +1,6 @@
+
+# BLE Bluetooth communication
+bleak>=0.22.0
+
+# Real-time plotting
+matplotlib>=3.8.0
