@@ -1,34 +1,36 @@
 # StretchSense BLE Data Acquisition Client
 
-基于 Python 和 Bleak 的 StretchSense 双通道传感器数据采集上位机。程序提供 BLE 扫描、设备连接、实时曲线显示、数据记录和断开清理功能。
+A Python desktop application for acquiring, visualizing, and recording dual-channel sensor data from a StretchSense BLE device.
 
-## 功能
+The client is built with [Bleak](https://github.com/hbldh/bleak), Tkinter, and Matplotlib. It supports BLE device discovery, GATT validation, real-time plotting, CSV recording, and connection lifecycle management.
 
-- 扫描附近的 BLE 设备并筛选 StretchSense
-- 连接指定 BLE 设备
-- 校验自定义 GATT Service 和 Notify Characteristic
-- 接收并解析双通道传感器数据
-- 实时绘制 CH1 和 CH2 曲线
-- 将采集数据保存为带时间戳的 CSV 文件
-- 正常处理断开连接、重新连接和窗口关闭
+## Features
 
-## 环境要求
+- BLE device scanning and StretchSense discovery
+- GATT service and characteristic validation
+- Bluetooth Notify subscriptions
+- Dual-channel real-time data visualization
+- Timestamped CSV data recording
+- Safe handling of disconnection, reconnection, and application shutdown
+- Cross-platform Windows BLE access through Bleak
 
-- Windows
-- Python 3.8 或更高版本
-- 支持 BLE 的蓝牙适配器
-- nRF52832 或兼容固件设备
+## Requirements
 
-Python 依赖：
+- Windows 10 or later
+- Python 3.8 or later
+- A BLE-capable Bluetooth adapter
+- A StretchSense-compatible nRF52832 BLE device
+
+Python dependencies:
 
 - `bleak`
 - `matplotlib`
 
-Tkinter 通常随标准 Windows Python 安装包提供。
+Tkinter is included with most standard Python distributions on Windows.
 
-## 安装
+## Installation
 
-建议在项目根目录创建虚拟环境：
+From the project root, create and activate a virtual environment:
 
 ```powershell
 python -m venv .venv
@@ -37,102 +39,114 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 配置
+## Configuration
 
-BLE 参数统一配置在 [config.py](config.py)：
+All BLE and application parameters are maintained in [config.py](config.py):
 
-| 参数 | 默认值 | 说明 |
+| Parameter | Default | Description |
 | --- | --- | --- |
-| `DEVICE_NAME` | `StretchSense` | 广播设备名称关键字 |
-| `SERVICE_UUID` | `12345678-1234-5678-1234-56789abcdef0` | 自定义 GATT Service UUID |
-| `DATA_CHAR_UUID` | `12345679-1234-5678-1234-56789abcdef0` | 数据 Notify Characteristic UUID |
-| `PLOT_POINTS` | `500` | 实时曲线最多显示的采样点数 |
-| `NOTIFICATION_INTERVAL_MS` | `100` | 固件通知周期，仅用于说明，不参与解析 |
+| `DEVICE_NAME` | `StretchSense` | Device name or name fragment used during discovery |
+| `SERVICE_UUID` | `12345678-1234-5678-1234-56789abcdef0` | Custom GATT service UUID |
+| `DATA_CHAR_UUID` | `12345679-1234-5678-1234-56789abcdef0` | GATT characteristic UUID used for data notifications |
+| `PLOT_POINTS` | `500` | Maximum number of samples retained by the plot |
+| `NOTIFICATION_INTERVAL_MS` | `100` | Firmware notification interval; informational only |
 
-修改固件参数时，需要确保 [config.py](config.py) 中的 Service UUID、Characteristic UUID 和设备名称与固件一致。
+Update these values if the firmware changes its broadcast name or GATT configuration.
 
-## 使用方法
+## Usage
 
-启动图形界面：
+Launch the desktop application:
 
 ```powershell
 python main.py
 ```
 
-操作流程：
+1. Click **Scan** to discover nearby StretchSense devices.
+2. Select a device from the device list.
+3. Click **Connect** to establish the BLE connection.
+4. Wait until the status changes to **Receiving**.
+5. Click **Start Recording** to create a CSV file.
+6. Click **Stop Recording** to finalize the CSV file.
+7. Click **Disconnect** or close the application to release the BLE connection.
 
-1. 点击 **Scan** 搜索设备。
-2. 从设备列表中选择 StretchSense。
-3. 点击 **Connect** 建立 BLE 连接并启用数据通知。
-4. 点击 **Start Recording** 开始保存数据。
-5. 点击 **Stop Recording** 停止保存。
-6. 点击 **Disconnect** 或关闭窗口断开设备。
-
-仅测试 BLE 扫描、连接和数据接收：
+To run the lightweight BLE receive test:
 
 ```powershell
 python test_ble.py
 ```
 
-该测试程序会搜索名为 `StretchSense` 的设备，订阅数据 Characteristic，并在 10 秒后停止接收。
+The test discovers a device named `StretchSense`, subscribes to its data characteristic, receives notifications for 10 seconds, and then disconnects.
 
-## 数据格式
+## Data Protocol
 
-每个 Notify 数据包固定包含 4 字节：
+Each notification packet contains exactly four bytes:
 
-| 字节 | 内容 |
-| --- | --- |
-| 0-1 | CH1，16 位无符号整数，小端序 |
-| 2-3 | CH2，16 位无符号整数，小端序 |
+| Byte range | Field | Format |
+| --- | --- | --- |
+| 0-1 | CH1 | 16-bit unsigned integer, little-endian |
+| 2-3 | CH2 | 16-bit unsigned integer, little-endian |
 
-[data_parser.py](data_parser.py) 使用小端序将原始字节解析为两个通道值。
+[data_parser.py](data_parser.py) converts the raw notification payload into the CH1 and CH2 values.
 
-## CSV 数据
+Example packet:
 
-开始录制后，程序会在 `data/` 目录中创建带时间戳的 CSV 文件：
+```text
+EF 03 DB 07
+CH1 = 1007
+CH2 = 2011
+```
+
+## CSV Output
+
+When recording starts, the application creates a timestamped file in the `data/` directory:
 
 ```text
 data/StretchSense_YYYYMMDD_HHMMSS.csv
 ```
 
-CSV 格式：
+CSV structure:
 
-| 列名 | 说明 |
+| Column | Description |
 | --- | --- |
-| `Time_s` | 相对数据记录开始时间的秒数 |
-| `CH1_raw` | CH1 原始数据值 |
-| `CH2_raw` | CH2 原始数据值 |
+| `Time_s` | Elapsed time in seconds relative to recording start |
+| `CH1_raw` | Raw CH1 value |
+| `CH2_raw` | Raw CH2 value |
 
-本地采集数据和 Python 缓存不会提交到 Git，由 [.gitignore](.gitignore) 排除。
+Generated data files and Python cache directories are excluded through [.gitignore](.gitignore).
 
-## 项目结构
+## Project Structure
 
 ```text
 .
-├── main.py           # Tkinter 主界面和应用流程
-├── ble_client.py     # BLE 扫描、连接、GATT 和通知处理
-├── data_parser.py    # 4 字节传感器数据解析
-├── data_logger.py    # CSV 数据记录
-├── realtime_plot.py  # 实时双通道曲线
-├── config.py         # 设备、UUID 和采集参数
-├── test_ble.py       # BLE 接收功能测试
-├── requirements.txt  # Python 依赖
-└── data/             # 本地生成的 CSV 文件
+├── main.py           # Tkinter application and GUI event loop
+├── ble_client.py     # BLE discovery, connection, GATT, and notification handling
+├── data_parser.py    # Raw notification payload decoding
+├── data_logger.py    # Timestamped CSV recording
+├── realtime_plot.py  # Real-time dual-channel visualization
+├── config.py         # Device, UUID, and plot configuration
+├── test_ble.py       # Standalone BLE receive test
+├── requirements.txt  # Python dependencies
+└── data/             # Locally generated CSV files
 ```
 
-## 常见问题
+## Troubleshooting
 
-### 找不到 StretchSense
+### Device Not Found
 
-- 确认设备已通电并开始广播。
-- 确认 `DEVICE_NAME` 与固件广播名称一致。
-- 确认 Windows 蓝牙已开启且未被其他程序占用。
-- 尝试重新运行扫描或重启 BLE 适配器。
+- Confirm that the device is powered on and advertising.
+- Verify that `DEVICE_NAME` matches the firmware broadcast name.
+- Confirm that Windows Bluetooth is enabled.
+- Restart the BLE scan or reconnect the Bluetooth adapter.
+- Close other applications that may have exclusive access to the device.
 
-### 找不到 GATT Service 或 Characteristic
+### GATT Service or Characteristic Not Found
 
-检查固件中的 UUID 是否与 [config.py](config.py) 完全一致，并确认数据 Characteristic 支持 Notify。
+Confirm that the firmware UUID values exactly match `SERVICE_UUID` and `DATA_CHAR_UUID` in [config.py](config.py). The data characteristic must support the Notify property.
 
-### 收到的数据长度不正确
+### Invalid Packet Length
 
-固件必须发送 4 字节通知：前 2 字节为 CH1，后 2 字节为 CH2，且均采用小端序。
+The firmware must send four-byte notification payloads:
+
+- Bytes 0-1: CH1
+- Bytes 2-3: CH2
+- Both fields: unsigned 16-bit little-endian integers
